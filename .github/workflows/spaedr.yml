@@ -168,7 +168,7 @@ jobs:
                         setColor(red); cornerRadius = 16 * d
                     }
                     setOnClickListener {
-                        startActivity(Intent(this@SpaedrIntroActivity, MainActivity::class.java))
+                        startActivity(Intent().setClassName(this@SpaedrIntroActivity, "__MAIN__"))
                         finish()
                     }
                 }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
@@ -201,19 +201,33 @@ jobs:
         assert s2 != s, "applicationId not found in build.gradle.kts (see lines above)"
         g.write_text(s2, encoding="utf-8")
 
-        # 2) اسم برنامه
+        # 2) اسم برنامه: همه app_name های قدیمی حذف می‌شن و یکی جدید ساخته می‌شه
         n = 0
-        for f in root.glob("src/main/res/values*/strings.xml"):
+        for f in root.glob("src/main/res/values*/*.xml"):
             t = f.read_text(encoding="utf-8")
-            t2 = re.sub(r'(<string name="app_name"[^>]*>)[^<]*(</string>)', r'\1SpaedrNG\2', t)
-            if "app_name" in t:
-                f.write_text(t2, encoding="utf-8"); n += 1
-        print("app_name files changed:", n)
-        assert n > 0, "app_name not found"
+            t2, c = re.subn(r'<string\s+name="app_name"[^>]*>.*?</string>', '', t, flags=re.S)
+            if c:
+                f.write_text(t2, encoding="utf-8"); n += c
+        print("old app_name entries removed:", n)
+        vdir = root / "src/main/res/values"
+        vdir.mkdir(parents=True, exist_ok=True)
+        (vdir / "spaedr_app_name.xml").write_text(
+            '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n'
+            '    <string name="app_name">SpaedrNG</string>\n</resources>\n', encoding="utf-8")
 
         # 3) صفحه ورود قبل از صفحه اصلی
         m = root / "src/main/AndroidManifest.xml"
         t = m.read_text(encoding="utf-8")
+        lp = t.find("android.intent.category.LAUNCHER")
+        assert lp >= 0, "launcher category not found in manifest"
+        starts = [x.start() for x in re.finditer(r'<activity\s', t) if x.start() < lp]
+        assert starts, "launcher activity not found"
+        nm = re.search(r'android:name="([^"]+)"', t[starts[-1]:]).group(1)
+        main_cls = ("com.v2ray.ang" + nm) if nm.startswith(".") else nm
+        print("main activity:", main_cls)
+        k = root / "src/main/java/com/v2ray/ang/ui/SpaedrIntroActivity.kt"
+        k.write_text(k.read_text(encoding="utf-8").replace("__MAIN__", main_cls), encoding="utf-8")
+
         t = re.sub(r'\s*<category\s+android:name="android\.intent\.category\.LAUNCHER"\s*/>', '', t)
         act = """
             <activity
