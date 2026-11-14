@@ -192,8 +192,13 @@ jobs:
         # 1) شناسه برنامه (کلون: کنار v2rayNG اصلی نصب می‌شه)
         g = root / "build.gradle.kts"
         s = g.read_text(encoding="utf-8")
-        s2 = re.sub(r'applicationId\s*=\s*"com\.v2ray\.ang"', 'applicationId = "ir.spaedr.ng2026x"', s)
-        assert s2 != s, "applicationId not found in build.gradle.kts"
+        s2 = re.sub(r'(applicationId\s*=\s*")com\.v2ray\.ang([^"]*")', r'\1ir.spaedr.ng2026x\2', s)
+        if s2 == s:
+            print("---- lines with applicationId ----")
+            for i, line in enumerate(s.splitlines(), 1):
+                if "applicationId" in line or "namespace" in line:
+                    print(i, line)
+        assert s2 != s, "applicationId not found in build.gradle.kts (see lines above)"
         g.write_text(s2, encoding="utf-8")
 
         # 2) اسم برنامه
