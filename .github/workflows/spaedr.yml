@@ -133,8 +133,10 @@ jobs:
         import android.view.Gravity
         import android.view.ViewGroup.LayoutParams.MATCH_PARENT
         import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        import android.widget.ImageView
         import android.widget.LinearLayout
         import android.widget.TextView
+        import com.v2ray.ang.R
 
         class SpaedrIntroActivity : Activity() {
             private val red = Color.parseColor("#E11D2E")
@@ -151,6 +153,9 @@ jobs:
                     setBackgroundColor(Color.parseColor("#0A0A0A"))
                     setPadding((28 * d).toInt(), 0, (28 * d).toInt(), 0)
                 }
+                root.addView(ImageView(this).apply {
+                    setImageResource(R.drawable.ic_spaedr_fg)
+                }, LinearLayout.LayoutParams((150 * d).toInt(), (150 * d).toInt()))
                 root.addView(TextView(this).apply {
                     text = "SpaedrNG"; textSize = 42f; setTextColor(red)
                     typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
@@ -244,6 +249,119 @@ jobs:
         t = t.replace("</application>", act + "</application>", 1)
         m.write_text(t, encoding="utf-8")
         print("manifest patched")
+
+        # 4) صفحه درباره: فقط کانال تلگرام
+        ABOUT = """package __PKG__
+
+        import android.app.Activity
+        import android.content.Intent
+        import android.graphics.Color
+        import android.graphics.Typeface
+        import android.graphics.drawable.GradientDrawable
+        import android.net.Uri
+        import android.os.Bundle
+        import android.view.Gravity
+        import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+        import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        import android.widget.ImageView
+        import android.widget.LinearLayout
+        import android.widget.TextView
+        import com.v2ray.ang.R
+
+        class AboutActivity : Activity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+                window.statusBarColor = Color.BLACK
+                window.navigationBarColor = Color.BLACK
+                val d = resources.displayMetrics.density
+                val ver = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "" }
+                val red = Color.parseColor("#E11D2E")
+
+                val root = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    setBackgroundColor(Color.parseColor("#0A0A0A"))
+                    setPadding((28 * d).toInt(), 0, (28 * d).toInt(), 0)
+                }
+                root.addView(ImageView(this).apply {
+                    setImageResource(R.drawable.ic_spaedr_fg)
+                }, LinearLayout.LayoutParams((130 * d).toInt(), (130 * d).toInt()))
+                root.addView(TextView(this).apply {
+                    text = "SpaedrNG"; textSize = 32f; setTextColor(red)
+                    typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
+                })
+                root.addView(TextView(this).apply {
+                    text = "نسخه " + (ver ?: ""); textSize = 14f
+                    setTextColor(Color.parseColor("#9A9A9A")); gravity = Gravity.CENTER
+                    setPadding(0, (6 * d).toInt(), 0, (32 * d).toInt())
+                })
+                root.addView(TextView(this).apply {
+                    text = "کانال تلگرام  @spaedrNG"; textSize = 17f; setTextColor(Color.WHITE)
+                    typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
+                    setPadding(0, (14 * d).toInt(), 0, (14 * d).toInt())
+                    background = GradientDrawable().apply { setColor(red); cornerRadius = 16 * d }
+                    setOnClickListener {
+                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spaedrNG")))
+                    }
+                }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                setContentView(root)
+            }
+        }
+        """
+        af = list(root.glob("src/main/java/**/AboutActivity.kt"))
+        if af:
+            pk = re.search(r'^package\s+([\w.]+)', af[0].read_text(encoding="utf-8"), re.M).group(1)
+            af[0].write_text(ABOUT.replace("__PKG__", pk), encoding="utf-8")
+            print("about replaced:", af[0])
+        else:
+            print("WARNING: AboutActivity.kt not found")
+
+        # 5) آیکون اعلان (بجای V): عنکبوت سفید
+        res = root / "src/main/res"
+        for f in list(res.rglob("ic_stat_name.*")):
+            f.unlink()
+        (res / "drawable").mkdir(parents=True, exist_ok=True)
+        (res / "drawable/ic_stat_name.xml").write_text(
+            '<vector xmlns:android="http://schemas.android.com/apk/res/android"'
+            ' android:width="24dp" android:height="24dp"'
+            ' android:viewportWidth="108" android:viewportHeight="108">'
+            '<path android:fillColor="#FFFFFF" android:pathData="M46,62 a8,11 0 1,0 16,0 a8,11 0 1,0 -16,0 Z"/>'
+            '<path android:fillColor="#FFFFFF" android:pathData="M49,44 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0 Z"/>'
+            '<path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round"'
+            ' android:strokeLineJoin="round" android:pathData="M50,46 L40,34 L32,36 M48,50 L36,44 L26,50'
+            ' M47,58 L35,60 L26,70 M49,66 L41,75 L36,80 M58,46 L68,34 L76,36 M60,50 L72,44 L82,50'
+            ' M61,58 L73,60 L82,70 M59,66 L67,75 L72,80"/></vector>', encoding="utf-8")
+
+        # آیکون‌های دیگه‌ای که ممکنه V باشن (فقط لیست می‌کنیم)
+        for f in sorted(res.rglob("*")):
+            if f.is_file() and re.search(r'logo|v2ray|ic_v_|ic_v\.', f.name, re.I):
+                print("CANDIDATE icon:", f.relative_to(root))
+
+        # 6) رنگ‌ها: همه رنگ‌های پررنگ به قرمز تبدیل می‌شن
+        import colorsys
+        hexp = r'(#[0-9A-Fa-f]{8}|#[0-9A-Fa-f]{6})'
+        pat = re.compile(r'(<(?:color|item)\s+name="([^"]+)"[^>]*>)' + hexp + r'(</(?:color|item)>)')
+        def recolor(m):
+            name, val = m.group(2), m.group(3)
+            if re.search(r'ping|green|success', name, re.I):
+                return m.group(0)
+            h = val[1:]; a = ""
+            if len(h) == 8:
+                a, h = h[:2], h[2:]
+            r, g, b = [int(h[i:i+2], 16) / 255 for i in (0, 2, 4)]
+            hh, ss, vv = colorsys.rgb_to_hsv(r, g, b)
+            if ss < 0.25 or vv < 0.2:
+                return m.group(0)
+            r2, g2, b2 = colorsys.hsv_to_rgb(354 / 360, max(ss, 0.75), vv)
+            return m.group(1) + "#" + a + "%02X%02X%02X" % (round(r2*255), round(g2*255), round(b2*255)) + m.group(4)
+        cn = 0
+        for nm_ in ("colors.xml", "themes.xml", "styles.xml"):
+            for f in root.glob("src/main/res/values*/" + nm_):
+                t = f.read_text(encoding="utf-8")
+                t2 = pat.sub(recolor, t)
+                if t2 != t:
+                    f.write_text(t2, encoding="utf-8"); cn += 1
+        print("color files recolored:", cn)
         PY
 
     - name: Create signing key
