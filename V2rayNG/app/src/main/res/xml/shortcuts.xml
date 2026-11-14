@@ -9,7 +9,7 @@
         android:shortcutShortLabel="@string/app_widget_name">
 
         <intent
-            android:action="android.intent.action.VIEW"
+            android:action="ir.spaedr.ng2026x"
             android:targetClass="com.v2ray.ang.ui.shortcut.ScSwitchActivity"
             android:targetPackage="com.v2ray.ang" />
         <categories android:name="android.shortcut.conversation" />
