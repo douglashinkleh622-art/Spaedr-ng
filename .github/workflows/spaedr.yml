@@ -436,10 +436,14 @@ jobs:
         # 7) حذف کامل لوگوی V (همه آیکون‌ها و لوگوهای قدیمی)
         BGV = (res / "drawable/ic_spaedr_bg.xml").read_text(encoding="utf-8")
         FGV = (res / "drawable/ic_spaedr_fg.xml").read_text(encoding="utf-8")
+        mip = set()
         for f in list(res.rglob("*")):
             if (f.is_file() and f.parent.name.startswith("mipmap")
-                    and not f.parent.name.startswith("mipmap-anydpi")
                     and f.name.startswith("ic_launcher")):
+                st_ = f.name.split(".")[0]
+                if f.parent.name.startswith("mipmap-anydpi") and st_ in ("ic_launcher", "ic_launcher_round"):
+                    continue
+                mip.add(st_)
                 f.unlink()
         (res / "mipmap-anydpi-v24").mkdir(parents=True, exist_ok=True)
         for n_ in ("ic_launcher", "ic_launcher_round"):
@@ -449,6 +453,11 @@ jobs:
                 '    <item android:drawable="@drawable/ic_spaedr_bg"/>\n'
                 '    <item android:drawable="@drawable/ic_spaedr_fg"/>\n'
                 '</layer-list>\n', encoding="utf-8")
+        for st_ in mip:
+            if st_ in ("ic_launcher", "ic_launcher_round"):
+                continue
+            (res / "mipmap-anydpi-v24" / (st_ + ".xml")).write_text(
+                BGV if st_.endswith("background") else FGV, encoding="utf-8")
         stems = set()
         for f in res.rglob("*"):
             if (f.is_file() and f.parent.name.startswith("drawable")
