@@ -116,6 +116,98 @@ jobs:
         XML
         done
 
+        cat > $APP/src/main/java/com/v2ray/ang/ui/SpaedrHook.kt <<'KT'
+        package com.v2ray.ang.ui
+
+        import android.app.Activity
+        import android.app.Application
+        import android.content.ContentProvider
+        import android.content.ContentValues
+        import android.database.Cursor
+        import android.graphics.Bitmap
+        import android.graphics.Canvas
+        import android.graphics.Color
+        import android.net.Uri
+        import android.os.Bundle
+        import android.util.TypedValue
+        import android.view.Gravity
+        import android.view.View
+        import android.view.ViewGroup
+        import android.widget.FrameLayout
+
+        class SpaedrHook : ContentProvider() {
+            override fun onCreate(): Boolean {
+                val app = context?.applicationContext as? Application
+                app?.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+                    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+                    override fun onActivityStarted(activity: Activity) {}
+                    override fun onActivityResumed(activity: Activity) {
+                        if (activity.javaClass.name == "__MAIN__") schedule(activity)
+                    }
+                    override fun onActivityPaused(activity: Activity) {}
+                    override fun onActivityStopped(activity: Activity) {}
+                    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+                    override fun onActivityDestroyed(activity: Activity) {}
+                })
+                return true
+            }
+
+            private fun schedule(a: Activity) {
+                a.window.decorView.postDelayed({
+                    try {
+                        if (!a.isFinishing) cover(a)
+                    } catch (e: Throwable) {
+                    }
+                }, 600)
+            }
+
+            // دکمه منوی سه‌خط با رنگ نوار بالا پوشانده می‌شه و کلیک روش جواب نمی‌ده
+            private fun cover(a: Activity) {
+                val decor = a.window.decorView as ViewGroup
+                if (decor.findViewWithTag<View>("spaedr_cover") != null) return
+                val dm = a.resources.displayMetrics
+                val d = dm.density
+                val tv = TypedValue()
+                val bar = if (a.theme.resolveAttribute(android.R.attr.actionBarSize, tv, true))
+                    TypedValue.complexToDimensionPixelSize(tv.data, dm) else (56 * d).toInt()
+                val sbId = a.resources.getIdentifier("status_bar_height", "dimen", "android")
+                val top = if (sbId > 0) a.resources.getDimensionPixelSize(sbId) else 0
+                val w = (72 * d).toInt()
+                val rtl = a.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+
+                var color = Color.parseColor("#0A0A0A")
+                if (a.theme.resolveAttribute(android.R.attr.colorPrimary, tv, true)) {
+                    color = Color.rgb(Color.red(tv.data), Color.green(tv.data), Color.blue(tv.data))
+                }
+                if (decor.width > 0 && decor.height > 0) {
+                    val bmp = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
+                    decor.draw(Canvas(bmp))
+                    val sx = if (rtl) decor.width - w / 2 else w / 2
+                    val sy = top + (4 * d).toInt()
+                    val px = bmp.getPixel(sx.coerceIn(0, bmp.width - 1), sy.coerceIn(0, bmp.height - 1))
+                    if (Color.alpha(px) > 200) color = Color.rgb(Color.red(px), Color.green(px), Color.blue(px))
+                    bmp.recycle()
+                }
+
+                val v = View(a)
+                v.tag = "spaedr_cover"
+                v.setBackgroundColor(color)
+                v.isClickable = true
+                v.isFocusable = true
+                v.elevation = 40 * d
+                val lp = FrameLayout.LayoutParams(w, bar, Gravity.TOP or (if (rtl) Gravity.END else Gravity.START))
+                lp.topMargin = top
+                decor.addView(v, lp)
+            }
+
+            override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor? = null
+            override fun getType(uri: Uri): String? = null
+            override fun insert(uri: Uri, values: ContentValues?): Uri? = null
+            override fun delete(uri: Uri, selection: String?, selectionArgs: Array<String>?): Int = 0
+            override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<String>?): Int = 0
+        }
+        KT
+
         python3 - <<'PY'
         import re, pathlib
         root = pathlib.Path("V2rayNG/app")
@@ -252,6 +344,26 @@ jobs:
             if t2 != t:
                 f.write_text(t2, encoding="utf-8")
         print("menu items hidden:", hidden)
+
+        # 7) پوشاندن دکمه منوی سه‌خط با رنگ نوار بالا (کلیک روش کار نمی‌کنه)
+        mf = root / "src/main/AndroidManifest.xml"
+        mt = mf.read_text(encoding="utf-8")
+        lpos = mt.find("android.intent.category.LAUNCHER")
+        assert lpos >= 0, "launcher category not found in manifest"
+        starts = [x.start() for x in re.finditer(r'<activity\s', mt) if x.start() < lpos]
+        assert starts, "launcher activity not found"
+        nm = re.search(r'android:name="([^"]+)"', mt[starts[-1]:]).group(1)
+        main_cls = ("com.v2ray.ang" + nm) if nm.startswith(".") else nm
+        print("main activity:", main_cls)
+        hk = root / "src/main/java/com/v2ray/ang/ui/SpaedrHook.kt"
+        hk.write_text(hk.read_text(encoding="utf-8").replace("__MAIN__", main_cls), encoding="utf-8")
+        prov = (
+            '    <provider android:name="com.v2ray.ang.ui.SpaedrHook"'
+            ' android:authorities="${applicationId}.spaedrhook" android:exported="false" />\n'
+        )
+        assert "</application>" in mt, "no </application> in manifest"
+        mf.write_text(mt.replace("</application>", prov + "</application>", 1), encoding="utf-8")
+        print("menu cover installed")
         PY
 
     - name: Create signing key
