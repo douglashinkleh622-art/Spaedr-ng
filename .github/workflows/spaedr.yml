@@ -120,72 +120,163 @@ jobs:
         XML
         done
 
+        cat > $APP/src/main/java/com/v2ray/ang/ui/SpaedrUi.kt <<'KT'
+        package com.v2ray.ang.ui
+
+        import android.content.Context
+        import android.graphics.Color
+        import android.graphics.Typeface
+        import android.graphics.drawable.GradientDrawable
+        import android.view.Gravity
+        import android.view.View
+        import android.view.ViewGroup
+        import android.widget.FrameLayout
+        import android.widget.ImageView
+        import android.widget.LinearLayout
+        import android.widget.TextView
+        import com.v2ray.ang.R
+
+        object SpaedrUi {
+            val RED: Int = Color.parseColor("#E11D2E")
+            val DARK_RED: Int = Color.parseColor("#9E1020")
+
+            fun dp(ctx: Context, v: Int): Int = (v * ctx.resources.displayMetrics.density).toInt()
+
+            fun lp(w: Int, h: Int, top: Int = 0): LinearLayout.LayoutParams {
+                val p = LinearLayout.LayoutParams(w, h)
+                p.topMargin = top
+                return p
+            }
+
+            fun page(ctx: Context): LinearLayout {
+                val l = LinearLayout(ctx)
+                l.orientation = LinearLayout.VERTICAL
+                l.gravity = Gravity.CENTER
+                l.background = GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(Color.parseColor("#0A0A0E"), Color.parseColor("#12060A"), Color.parseColor("#26080F"))
+                )
+                l.setPadding(dp(ctx, 30), dp(ctx, 24), dp(ctx, 30), dp(ctx, 24))
+                return l
+            }
+
+            fun logo(ctx: Context, size: Int): FrameLayout {
+                val box = FrameLayout(ctx)
+                val glow = View(ctx)
+                val g = GradientDrawable()
+                g.shape = GradientDrawable.OVAL
+                g.gradientType = GradientDrawable.RADIAL_GRADIENT
+                g.gradientRadius = dp(ctx, size) * 0.9f
+                g.setColors(intArrayOf(Color.parseColor("#55E11D2E"), Color.parseColor("#00E11D2E")))
+                glow.background = g
+                box.addView(glow, FrameLayout.LayoutParams(dp(ctx, size * 2), dp(ctx, size * 2), Gravity.CENTER))
+                val img = ImageView(ctx)
+                img.setImageResource(R.drawable.ic_spaedr_fg)
+                box.addView(img, FrameLayout.LayoutParams(dp(ctx, size), dp(ctx, size), Gravity.CENTER))
+                return box
+            }
+
+            fun title(ctx: Context, text: String, size: Float): TextView {
+                val t = TextView(ctx)
+                t.text = text
+                t.textSize = size
+                t.setTextColor(Color.WHITE)
+                t.typeface = Typeface.DEFAULT_BOLD
+                t.letterSpacing = 0.12f
+                t.gravity = Gravity.CENTER
+                return t
+            }
+
+            fun accent(ctx: Context): View {
+                val v = View(ctx)
+                val g = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(RED, DARK_RED))
+                g.cornerRadius = dp(ctx, 2).toFloat()
+                v.background = g
+                return v
+            }
+
+            fun body(ctx: Context, text: String): TextView {
+                val t = TextView(ctx)
+                t.text = text
+                t.textSize = 15f
+                t.setTextColor(Color.parseColor("#B9B9C4"))
+                t.gravity = Gravity.CENTER
+                t.setLineSpacing(0f, 1.45f)
+                return t
+            }
+
+            fun button(ctx: Context, text: String, onClick: () -> Unit): TextView {
+                val b = TextView(ctx)
+                b.text = text
+                b.textSize = 16f
+                b.setTextColor(Color.WHITE)
+                b.typeface = Typeface.DEFAULT_BOLD
+                b.gravity = Gravity.CENTER
+                b.setPadding(0, dp(ctx, 16), 0, dp(ctx, 16))
+                val g = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(RED, DARK_RED))
+                g.cornerRadius = dp(ctx, 28).toFloat()
+                b.background = g
+                b.elevation = dp(ctx, 6).toFloat()
+                b.setOnClickListener { onClick() }
+                return b
+            }
+
+            fun footer(ctx: Context, text: String, onClick: () -> Unit): TextView {
+                val t = TextView(ctx)
+                t.text = text
+                t.textSize = 13f
+                t.setTextColor(Color.parseColor("#7C7C88"))
+                t.gravity = Gravity.CENTER
+                t.setPadding(0, dp(ctx, 28), 0, 0)
+                t.setOnClickListener { onClick() }
+                return t
+            }
+
+            fun fadeIn(root: ViewGroup) {
+                for (i in 0 until root.childCount) {
+                    val c = root.getChildAt(i)
+                    c.alpha = 0f
+                    c.translationY = dp(root.context, 22).toFloat()
+                    c.animate().alpha(1f).translationY(0f).setStartDelay(110L * i).setDuration(450L).start()
+                }
+            }
+        }
+        KT
+
         cat > $APP/src/main/java/com/v2ray/ang/ui/SpaedrIntroActivity.kt <<'KT'
         package com.v2ray.ang.ui
 
         import android.app.Activity
         import android.content.Intent
         import android.graphics.Color
-        import android.graphics.Typeface
-        import android.graphics.drawable.GradientDrawable
         import android.net.Uri
         import android.os.Bundle
-        import android.view.Gravity
         import android.view.ViewGroup.LayoutParams.MATCH_PARENT
         import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-        import android.widget.ImageView
-        import android.widget.LinearLayout
-        import android.widget.TextView
-        import com.v2ray.ang.R
 
         class SpaedrIntroActivity : Activity() {
-            private val red = Color.parseColor("#E11D2E")
-
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
-                window.statusBarColor = Color.BLACK
-                window.navigationBarColor = Color.BLACK
-                val d = resources.displayMetrics.density
-
-                val root = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
-                    setBackgroundColor(Color.parseColor("#0A0A0A"))
-                    setPadding((28 * d).toInt(), 0, (28 * d).toInt(), 0)
-                }
-                root.addView(ImageView(this).apply {
-                    setImageResource(R.drawable.ic_spaedr_fg)
-                }, LinearLayout.LayoutParams((150 * d).toInt(), (150 * d).toInt()))
-                root.addView(TextView(this).apply {
-                    text = "SpaedrNG"; textSize = 42f; setTextColor(red)
-                    typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
-                })
-                root.addView(TextView(this).apply {
-                    text = "این یک کلاینت قوی و پرسرعت است\nو به مرور زمان بهش چیز های بیشتری اضافه خواهد شد"
-                    textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-                    setPadding(0, (24 * d).toInt(), 0, (36 * d).toInt())
-                })
-                root.addView(TextView(this).apply {
-                    text = "ورود به برنامه"; textSize = 17f; setTextColor(Color.WHITE)
-                    typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
-                    setPadding(0, (14 * d).toInt(), 0, (14 * d).toInt())
-                    background = GradientDrawable().apply {
-                        setColor(red); cornerRadius = 16 * d
-                    }
-                    setOnClickListener {
-                        startActivity(Intent().setClassName(this@SpaedrIntroActivity, "__MAIN__"))
-                        finish()
-                    }
-                }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-                root.addView(TextView(this).apply {
-                    text = "سازنده: @spaedrNG"; textSize = 14f
-                    setTextColor(Color.parseColor("#9A9A9A")); gravity = Gravity.CENTER
-                    setPadding(0, (28 * d).toInt(), 0, 0)
-                    setOnClickListener {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spaedrNG")))
-                    }
+                window.statusBarColor = Color.parseColor("#0A0A0E")
+                window.navigationBarColor = Color.parseColor("#26080F")
+                val u = SpaedrUi
+                val root = u.page(this)
+                root.addView(u.logo(this, 120))
+                root.addView(u.title(this, "SpaedrNG", 34f))
+                root.addView(u.accent(this), u.lp(u.dp(this, 36), u.dp(this, 3), u.dp(this, 14)))
+                root.addView(
+                    u.body(this, "این یک کلاینت قوی و پرسرعت است\nو به مرور زمان بهش چیز های بیشتری اضافه خواهد شد"),
+                    u.lp(MATCH_PARENT, WRAP_CONTENT, u.dp(this, 22))
+                )
+                root.addView(u.button(this, "ورود به برنامه") {
+                    startActivity(Intent().setClassName(this@SpaedrIntroActivity, "__MAIN__"))
+                    finish()
+                }, u.lp(MATCH_PARENT, WRAP_CONTENT, u.dp(this, 38)))
+                root.addView(u.footer(this, "@spaedrNG") {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spaedrNG")))
                 })
                 setContentView(root)
+                u.fadeIn(root)
             }
         }
         KT
@@ -214,6 +305,11 @@ jobs:
             if c:
                 f.write_text(t2, encoding="utf-8"); n += c
         print("old app_name entries removed:", n)
+        for f in root.glob("src/main/res/values*/strings.xml"):
+            t = f.read_text(encoding="utf-8")
+            t2 = re.sub(r'(?<![/\w.])(?i:v2rayng)', 'SpaedrNG', t)
+            if t2 != t:
+                f.write_text(t2, encoding="utf-8")
         vdir = root / "src/main/res/values"
         vdir.mkdir(parents=True, exist_ok=True)
         (vdir / "spaedr_app_name.xml").write_text(
@@ -256,55 +352,29 @@ jobs:
         import android.app.Activity
         import android.content.Intent
         import android.graphics.Color
-        import android.graphics.Typeface
-        import android.graphics.drawable.GradientDrawable
         import android.net.Uri
         import android.os.Bundle
-        import android.view.Gravity
         import android.view.ViewGroup.LayoutParams.MATCH_PARENT
         import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
-        import android.widget.ImageView
-        import android.widget.LinearLayout
-        import android.widget.TextView
-        import com.v2ray.ang.R
+        import com.v2ray.ang.ui.SpaedrUi
 
         class AboutActivity : Activity() {
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
-                window.statusBarColor = Color.BLACK
-                window.navigationBarColor = Color.BLACK
-                val d = resources.displayMetrics.density
+                window.statusBarColor = Color.parseColor("#0A0A0E")
+                window.navigationBarColor = Color.parseColor("#26080F")
                 val ver = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (e: Exception) { "" }
-                val red = Color.parseColor("#E11D2E")
-
-                val root = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER
-                    setBackgroundColor(Color.parseColor("#0A0A0A"))
-                    setPadding((28 * d).toInt(), 0, (28 * d).toInt(), 0)
-                }
-                root.addView(ImageView(this).apply {
-                    setImageResource(R.drawable.ic_spaedr_fg)
-                }, LinearLayout.LayoutParams((130 * d).toInt(), (130 * d).toInt()))
-                root.addView(TextView(this).apply {
-                    text = "SpaedrNG"; textSize = 32f; setTextColor(red)
-                    typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
-                })
-                root.addView(TextView(this).apply {
-                    text = "نسخه " + (ver ?: ""); textSize = 14f
-                    setTextColor(Color.parseColor("#9A9A9A")); gravity = Gravity.CENTER
-                    setPadding(0, (6 * d).toInt(), 0, (32 * d).toInt())
-                })
-                root.addView(TextView(this).apply {
-                    text = "کانال تلگرام  @spaedrNG"; textSize = 17f; setTextColor(Color.WHITE)
-                    typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
-                    setPadding(0, (14 * d).toInt(), 0, (14 * d).toInt())
-                    background = GradientDrawable().apply { setColor(red); cornerRadius = 16 * d }
-                    setOnClickListener {
-                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spaedrNG")))
-                    }
-                }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+                val u = SpaedrUi
+                val root = u.page(this)
+                root.addView(u.logo(this, 100))
+                root.addView(u.title(this, "SpaedrNG", 30f))
+                root.addView(u.accent(this), u.lp(u.dp(this, 36), u.dp(this, 3), u.dp(this, 14)))
+                root.addView(u.body(this, "نسخه " + (ver ?: "")), u.lp(MATCH_PARENT, WRAP_CONTENT, u.dp(this, 16)))
+                root.addView(u.button(this, "کانال تلگرام  @spaedrNG") {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/spaedrNG")))
+                }, u.lp(MATCH_PARENT, WRAP_CONTENT, u.dp(this, 36)))
                 setContentView(root)
+                u.fadeIn(root)
             }
         }
         """
@@ -362,6 +432,36 @@ jobs:
                 if t2 != t:
                     f.write_text(t2, encoding="utf-8"); cn += 1
         print("color files recolored:", cn)
+
+        # 7) حذف کامل لوگوی V (همه آیکون‌ها و لوگوهای قدیمی)
+        BGV = (res / "drawable/ic_spaedr_bg.xml").read_text(encoding="utf-8")
+        FGV = (res / "drawable/ic_spaedr_fg.xml").read_text(encoding="utf-8")
+        for f in list(res.rglob("*")):
+            if (f.is_file() and f.parent.name.startswith("mipmap")
+                    and not f.parent.name.startswith("mipmap-anydpi")
+                    and f.name.startswith("ic_launcher")):
+                f.unlink()
+        (res / "mipmap-anydpi-v24").mkdir(parents=True, exist_ok=True)
+        for n_ in ("ic_launcher", "ic_launcher_round"):
+            (res / "mipmap-anydpi-v24" / (n_ + ".xml")).write_text(
+                '<?xml version="1.0" encoding="utf-8"?>\n'
+                '<layer-list xmlns:android="http://schemas.android.com/apk/res/android">\n'
+                '    <item android:drawable="@drawable/ic_spaedr_bg"/>\n'
+                '    <item android:drawable="@drawable/ic_spaedr_fg"/>\n'
+                '</layer-list>\n', encoding="utf-8")
+        stems = set()
+        for f in res.rglob("*"):
+            if (f.is_file() and f.parent.name.startswith("drawable")
+                    and not f.name.startswith("ic_spaedr")
+                    and re.search(r'logo|ic_launcher', f.name, re.I)):
+                stems.add(f.name.split(".")[0])
+        for st in stems:
+            for f in list(res.rglob(st + ".*")):
+                if f.parent.name.startswith("drawable"):
+                    f.unlink()
+            (res / "drawable" / (st + ".xml")).write_text(
+                BGV if st.endswith("background") else FGV, encoding="utf-8")
+        print("logo drawables replaced:", sorted(stems))
         PY
 
     - name: Create signing key
