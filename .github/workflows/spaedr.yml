@@ -161,7 +161,8 @@ jobs:
                 }, 600)
             }
 
-            // دکمه منوی سه‌خط با رنگ نوار بالا پوشانده می‌شه و کلیک روش جواب نمی‌ده
+            // دکمه منوی همبرگری (سه‌خط) با رنگ نوار بالا پوشانده می‌شه و کلیک روش جواب نمی‌ده
+            // منوی سه‌نقطه دست‌نخورده می‌مونه
             private fun cover(a: Activity) {
                 val decor = a.window.decorView as ViewGroup
                 if (decor.findViewWithTag<View>("spaedr_cover") != null) return
@@ -172,18 +173,49 @@ jobs:
                     TypedValue.complexToDimensionPixelSize(tv.data, dm) else (56 * d).toInt()
                 val sbId = a.resources.getIdentifier("status_bar_height", "dimen", "android")
                 val top = if (sbId > 0) a.resources.getDimensionPixelSize(sbId) else 0
-                val w = (72 * d).toInt()
-                val rtl = a.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
+                val rtl = decor.layoutDirection == View.LAYOUT_DIRECTION_RTL
 
+                // 1) پیدا کردن دکمه همبرگری واقعی از روی توضیح دسترسی‌پذیری (به هر زبان)
+                val keys = ArrayList<String>()
+                for (name in arrayOf("navigation_drawer_open", "navigation_menu", "navigation_drawer_close")) {
+                    val rid = a.resources.getIdentifier(name, "string", a.packageName)
+                    if (rid > 0) keys.add(a.getString(rid))
+                }
+                keys.add("navigation drawer")
+                val found = ArrayList<View>()
+                for (k in keys) decor.findViewsWithText(found, k, View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION)
+                val loc = IntArray(2)
+                var bx = -1
+                var by = -1
+                var bw = 0
+                var bh = 0
+                for (v in found) {
+                    if (!v.isShown || v.width <= 0 || v.height <= 0) continue
+                    v.getLocationInWindow(loc)
+                    if (loc[1] > top + bar * 2) continue
+                    if (v.width > 160 * d || v.height > 160 * d) continue
+                    bx = loc[0]
+                    by = loc[1]
+                    bw = v.width
+                    bh = v.height
+                    break
+                }
+                val exact = bx >= 0
+
+                // 2) رنگ نوار بالا
                 var color = Color.parseColor("#0A0A0A")
                 if (a.theme.resolveAttribute(android.R.attr.colorPrimary, tv, true)) {
                     color = Color.rgb(Color.red(tv.data), Color.green(tv.data), Color.blue(tv.data))
                 }
+                val w = if (exact) bw + (16 * d).toInt() else (72 * d).toInt()
+                val h = if (exact) bh + (16 * d).toInt() else bar
+                val left = if (exact) maxOf(0, bx - (8 * d).toInt()) else (if (rtl) decor.width - w else 0)
+                val topPos = if (exact) maxOf(top, by - (8 * d).toInt()) else top
                 if (decor.width > 0 && decor.height > 0) {
                     val bmp = Bitmap.createBitmap(decor.width, decor.height, Bitmap.Config.ARGB_8888)
                     decor.draw(Canvas(bmp))
-                    val sx = if (rtl) decor.width - w / 2 else w / 2
-                    val sy = top + (4 * d).toInt()
+                    val sx = if (exact) bx + (2 * d).toInt() else left + w / 2
+                    val sy = if (exact) by + (2 * d).toInt() else top + (4 * d).toInt()
                     val px = bmp.getPixel(sx.coerceIn(0, bmp.width - 1), sy.coerceIn(0, bmp.height - 1))
                     if (Color.alpha(px) > 200) color = Color.rgb(Color.red(px), Color.green(px), Color.blue(px))
                     bmp.recycle()
@@ -195,8 +227,9 @@ jobs:
                 v.isClickable = true
                 v.isFocusable = true
                 v.elevation = 40 * d
-                val lp = FrameLayout.LayoutParams(w, bar, Gravity.TOP or (if (rtl) Gravity.END else Gravity.START))
-                lp.topMargin = top
+                val lp = FrameLayout.LayoutParams(w, h, Gravity.TOP or Gravity.LEFT)
+                lp.leftMargin = left
+                lp.topMargin = topPos
                 decor.addView(v, lp)
             }
 
@@ -345,7 +378,7 @@ jobs:
                 f.write_text(t2, encoding="utf-8")
         print("menu items hidden:", hidden)
 
-        # 7) پوشاندن دکمه منوی سه‌خط با رنگ نوار بالا (کلیک روش کار نمی‌کنه)
+        # 7) پوشاندن دکمه منوی همبرگری با رنگ نوار بالا (کلیک روش کار نمی‌کنه)
         mf = root / "src/main/AndroidManifest.xml"
         mt = mf.read_text(encoding="utf-8")
         lpos = mt.find("android.intent.category.LAUNCHER")
