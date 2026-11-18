@@ -397,6 +397,24 @@ jobs:
         assert "</application>" in mt, "no </application> in manifest"
         mf.write_text(mt.replace("</application>", prov + "</application>", 1), encoding="utf-8")
         print("menu cover installed")
+
+        # 8) حذف هر نوشته‌ای که "فایل کانفیگ" داره (متنش خالی می‌شه)
+        cfg_pat = re.compile(r'config(?:uration)?\s*file|فایل\s*کانفیگ|فایل\s*پیکربندی|فایل\s*تنظیمات|کانفیگ\s*فایل', re.I)
+        str_pat = re.compile(r'(<string\s+name="([^"]+)"[^>]*>)(.*?)(</string>)', re.S)
+        blanked = 0
+        for f in root.glob("src/main/res/values*/*.xml"):
+            t = f.read_text(encoding="utf-8")
+            def blank(m):
+                global blanked
+                if cfg_pat.search(m.group(3)):
+                    blanked += 1
+                    print("text removed:", f.parent.name, m.group(2))
+                    return m.group(1) + m.group(4)
+                return m.group(0)
+            t2 = str_pat.sub(blank, t)
+            if t2 != t:
+                f.write_text(t2, encoding="utf-8")
+        print("texts removed:", blanked)
         PY
 
     - name: Create signing key
