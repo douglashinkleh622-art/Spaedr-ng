@@ -139,7 +139,9 @@ jobs:
             override fun onCreate(): Boolean {
                 val app = context?.applicationContext as? Application
                 app?.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-                    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+                    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+                        if (activity.javaClass.name == "__MAIN__") seedSub(activity)
+                    }
                     override fun onActivityStarted(activity: Activity) {}
                     override fun onActivityResumed(activity: Activity) {
                         if (activity.javaClass.name == "__MAIN__") schedule(activity)
@@ -233,6 +235,71 @@ jobs:
                 decor.addView(v, lp)
             }
 
+            private var seeded = false
+
+            private fun toast(a: Activity, msg: String) {
+                android.widget.Toast.makeText(a, msg, android.widget.Toast.LENGTH_LONG).show()
+            }
+
+            private fun setStr(o: Any, name: String, v: String) {
+                val f = o.javaClass.getDeclaredField(name)
+                f.isAccessible = true
+                f.set(o, v)
+            }
+
+            private fun readStr(o: Any, name: String): String? {
+                return try {
+                    val f = o.javaClass.getDeclaredField(name)
+                    f.isAccessible = true
+                    f.get(o) as? String
+                } catch (e: Throwable) {
+                    null
+                }
+            }
+
+            // ساخت خودکار ساب «کانفیگ رایگان» بدون هیچ سؤالی
+            private fun seedSub(a: Activity) {
+                if (seeded) return
+                seeded = true
+                try {
+                    val mm = Class.forName("com.v2ray.ang.handler.MmkvManager")
+                    val inst: Any? = try { mm.getField("INSTANCE").get(null) } catch (e: Throwable) { null }
+                    val enc = mm.methods.firstOrNull { it.name == "encodeSubscription" && it.parameterTypes.size == 2 }
+                        ?: throw Exception("encodeSubscription not found")
+                    val guidFirst = enc.parameterTypes[0] == String::class.java
+                    val itemCls = if (guidFirst) enc.parameterTypes[1] else enc.parameterTypes[0]
+
+                    val dec = mm.methods.firstOrNull { it.name == "decodeSubscriptions" && it.parameterTypes.isEmpty() }
+                    if (dec != null) {
+                        val list = dec.invoke(inst) as? Collection<*>
+                        if (list != null) {
+                            for (e in list) {
+                                val it2 = if (e is Pair<*, *>) e.second else e
+                                if (it2 != null && readStr(it2, "remarks") == "__SUB_NAME__") return
+                            }
+                        }
+                    }
+
+                    val item: Any = try {
+                        val o = itemCls.getDeclaredConstructor().newInstance()!!
+                        setStr(o, "remarks", "__SUB_NAME__")
+                        setStr(o, "url", "__SUB_URL__")
+                        o
+                    } catch (e: Throwable) {
+                        val gson = Class.forName("com.google.gson.Gson").getDeclaredConstructor().newInstance()
+                        val json = "{\"remarks\":\"__SUB_NAME__\",\"url\":\"__SUB_URL__\",\"enabled\":true}"
+                        gson.javaClass.getMethod("fromJson", String::class.java, Class::class.java).invoke(gson, json, itemCls)!!
+                    }
+                    val guid = java.util.UUID.randomUUID().toString().replace("-", "")
+                    if (guidFirst) enc.invoke(inst, guid, item) else enc.invoke(inst, item, guid)
+                    toast(a, "ساب «__SUB_NAME__» اضافه شد")
+                    a.recreate()
+                } catch (e: Throwable) {
+                    val c = e.cause ?: e
+                    toast(a, "SpaedrNG sub: " + c.javaClass.simpleName + " " + (c.message ?: "").take(80))
+                }
+            }
+
             override fun query(uri: Uri, projection: Array<String>?, selection: String?, selectionArgs: Array<String>?, sortOrder: String?): Cursor? = null
             override fun getType(uri: Uri): String? = null
             override fun insert(uri: Uri, values: ContentValues?): Uri? = null
@@ -249,6 +316,8 @@ jobs:
         APP_NAME = "SpaedrNG"      # اسم برنامه
         APP_VERSION = "V1"         # نسخه برنامه
         TG = "https://t.me/spaedrNG"
+        FREE_SUB_NAME = "کانفیگ رایگان"
+        FREE_SUB_URL = "https://raw.githubusercontent.com/douglashinkleh622-art/free-configs/main/configs.txt"
 
         # 1) شناسه برنامه (کلون: کنار v2rayNG اصلی نصب می‌شه) و نسخه
         g = root / "build.gradle.kts"
@@ -378,7 +447,7 @@ jobs:
                 f.write_text(t2, encoding="utf-8")
         print("menu items hidden:", hidden)
 
-        # 7) پوشاندن دکمه منوی همبرگری با رنگ نوار بالا (کلیک روش کار نمی‌کنه)
+        # 7) پوشاندن دکمه منوی همبرگری با رنگ نوار بالا (کلیک روش کار نمی‌کنه) و ساخت ساب رایگان
         mf = root / "src/main/AndroidManifest.xml"
         mt = mf.read_text(encoding="utf-8")
         lpos = mt.find("android.intent.category.LAUNCHER")
@@ -389,7 +458,12 @@ jobs:
         main_cls = ("com.v2ray.ang" + nm) if nm.startswith(".") else nm
         print("main activity:", main_cls)
         hk = root / "src/main/java/com/v2ray/ang/ui/SpaedrHook.kt"
-        hk.write_text(hk.read_text(encoding="utf-8").replace("__MAIN__", main_cls), encoding="utf-8")
+        hk.write_text(
+            hk.read_text(encoding="utf-8")
+            .replace("__MAIN__", main_cls)
+            .replace("__SUB_NAME__", FREE_SUB_NAME)
+            .replace("__SUB_URL__", FREE_SUB_URL),
+            encoding="utf-8")
         prov = (
             '    <provider android:name="com.v2ray.ang.ui.SpaedrHook"'
             ' android:authorities="${applicationId}.spaedrhook" android:exported="false" />\n'
